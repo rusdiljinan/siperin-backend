@@ -5,36 +5,42 @@
 ## Instalasi
 
 ```bash
-cd backend
 composer install
-cp .env.example .env   # jika belum ada
+```
+
+Salin `.env.example` menjadi `.env` jika file `.env` belum tersedia, lalu sesuaikan konfigurasi database dengan lingkungan yang digunakan.
+
+```bash
 php artisan key:generate
 ```
 
+**Catatan:** Jangan menjalankan `php artisan key:generate` pada server yang sudah digunakan tanpa memahami dampaknya terhadap sesi dan data terenkripsi. Gunakan `APP_KEY` yang sesuai untuk lingkungan deployment.
+
 ### Database MySQL (XAMPP)
 
-1. Buat database di phpMyAdmin: `siperin`
-2. Pastikan `.env`:
-```
+1. Buat atau pilih database `siperin` melalui phpMyAdmin.
+2. Sesuaikan konfigurasi database pada `.env`:
+
+```dotenv
 DB_CONNECTION=mysql
 DB_DATABASE=siperin
 DB_USERNAME=root
 DB_PASSWORD=
-# Laravel Sanctum (token API mobile)
-SANCTUM_STATEFUL_DOMAINS=localhost,127.0.0.1,127.0.0.1:8000
 ```
 
+3. Jalankan migrasi hanya setelah memastikan database yang digunakan benar dan memiliki backup yang aman:
+
 ```bash
-php artisan migrate:fresh --seed
+php artisan migrate
 php artisan storage:link
 php artisan serve
 ```
 
-API: http://127.0.0.1:8000/api
+API lokal: `http://127.0.0.1:8000/api`
 
 ## Struktur
 
-```
+```text
 app/
 ├── Enums/
 ├── Exports/
@@ -51,13 +57,18 @@ app/
 
 ## Dokumentasi API
 
-Lihat [API_DOCUMENTATION.md](API_DOCUMENTATION.md)
+Lihat [API_DOCUMENTATION.md](API_DOCUMENTATION.md).
 
 ## Integrasi Flutter
 
-Di project Flutter, set `lib/core/constants/api_constants.dart`:
+Sesuaikan `lib/core/constants/api_constants.dart` dengan alamat backend yang digunakan.
+
+Untuk pengembangan lokal:
+
 ```dart
 static const String baseUrl = 'http://127.0.0.1:8000/api';
 ```
 
-Login memakai **Laravel Sanctum** (Bearer token). Tidak ada mode demo di aplikasi.
+Untuk deployment, gunakan URL HTTPS backend yang sebenarnya.
+
+Login menggunakan **Laravel Sanctum** dengan Bearer token. Tidak ada mode demo di aplikasi.
