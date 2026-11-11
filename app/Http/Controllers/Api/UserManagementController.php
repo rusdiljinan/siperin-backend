@@ -6,8 +6,8 @@ use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ManagedUserResource;
 use App\Models\User;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use App\Traits\ApiResponse;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -59,21 +59,30 @@ class UserManagementController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        $username = trim((string) $request->input('username'));
+        $request->merge([
+            'name' => trim((string) $request->input('name')),
+            'username' => $username !== '' ? $username : null,
+        ]);
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],
+            'username' => ['nullable', 'string', 'max:50', Rule::unique('users', 'username')],
             'role' => ['required', Rule::in(array_column(UserRole::cases(), 'value'))],
-            'password' => ['required', 'string', 'max:72', Password::min(8)->letters()->numbers()],
+            'password' => ['sometimes', 'nullable', 'string', 'max:72', Password::min(8)->letters()->numbers()],
         ]);
 
         try {
             [$user, $loginUsername] = DB::transaction(function () use ($validated): array {
-                [$username, $email] = $this->generateLoginIdentity($validated['name']);
+                [$generatedUsername, $generatedEmail] = $this->generateLoginIdentity($validated['name']);
+                $username = trim((string) ($validated['username'] ?? $generatedUsername));
+
                 $user = User::create([
                     'name' => trim($validated['name']),
                     'username' => $username,
-                    'email' => $email,
+                    'email' => $generatedEmail,
                     'role' => $validated['role'],
-                    'password' => Hash::make($validated['password']),
+                    'password' => Hash::make((string) ($validated['password'] ?? Str::random(32))),
                     'is_active' => true,
                 ]);
 

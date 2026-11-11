@@ -94,4 +94,40 @@ class BarangRbsTest extends TestCase
             'kondisi_barang' => 'Rusak',
         ]);
     }
+
+    public function test_user_role_can_create_inventory(): void
+    {
+        $user = User::factory()->create([
+            'name' => 'User Inventaris',
+            'username' => 'user-inventaris',
+            'email' => 'user-inventaris@example.test',
+            'role' => 'user',
+        ]);
+
+        $categoryResponse = $this->actingAs($user)
+            ->postJson('/api/kategori', ['nama_kategori' => 'Kategori User'])
+            ->assertCreated();
+        $kategoriId = $categoryResponse->json('data.id');
+
+        $this->putJson("/api/kategori/{$kategoriId}", [
+            'nama_kategori' => 'Kategori User Diperbarui',
+        ])->assertOk();
+
+        $this->postJson('/api/barang', [
+            'kategori_id' => $kategoriId,
+            'nama_barang' => 'Barang User',
+            'tahun_pembelian' => 2020,
+            'kode_barang' => 'KB-USER-001',
+            'jumlah_barang' => 1,
+            'harga_beli' => 1000,
+            'lokasi_ruangan' => 'Ruang User',
+            'kelengkapan_score' => 3,
+            'fungsional_score' => 3,
+            'fisik_score' => 3,
+            'usia_score' => 3,
+            'perawatan_score' => 3,
+            'keamanan_score' => 3,
+        ])
+            ->assertCreated();
+    }
 }

@@ -34,7 +34,7 @@ class NotificationService
 
     protected function broadcast(string $tipe, string $judul, string $pesan, ?int $barangId = null): void
     {
-        $admins = User::whereIn('role', ['admin', 'staff'])->where('is_active', true)->get();
+        $admins = User::whereIn('role', ['admin', 'user'])->where('is_active', true)->get();
 
         foreach ($admins as $user) {
             Notifikasi::create([

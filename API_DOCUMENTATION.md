@@ -38,7 +38,7 @@ Header autentikasi: `Authorization: Bearer {token}`
 | POST | `/reset-password` | - | Reset password dengan token |
 | POST | `/logout` | Sanctum | Logout (revoke token) |
 | GET | `/me` | Sanctum | Profil user login |
-| PUT | `/profile` | Sanctum | Update profil |
+| PUT | `/profile` | Sanctum | Update data profil akun yang sedang login |
 
 ### Login Request
 ```json
@@ -72,13 +72,22 @@ Header autentikasi: `Authorization: Bearer {token}`
 
 ---
 
+## Pengelolaan Pengguna
+
+Pembuatan pengguna oleh Admin menggunakan nama, role, username (opsional), dan
+password awal (opsional). Form pengelolaan akun tidak meminta email dan proses
+ini tidak mengirim email. Untuk kompatibilitas skema serta fitur registrasi,
+profil, dan reset password yang masih memakai email, backend tetap menyimpan
+alamat internal otomatis untuk akun yang dibuat tanpa email.
+
+---
+
 ## Role-Based Access
 
 | Role | Akses |
 |------|-------|
-| `admin` | Full CRUD + kategori + verifikasi |
-| `staff` | CRUD barang & kategori |
-| `pimpinan` | Read-only (dashboard, laporan, barang) |
+| `admin` | Full CRUD, kategori, verifikasi, dan manajemen pengguna |
+| `user` | Akses baca serta CRUD barang/kategori dan verifikasi |
 
 ---
 
@@ -96,21 +105,24 @@ Header autentikasi: `Authorization: Bearer {token}`
 | GET | `/barang/{id}` | All |
 | GET | `/barang/{id}/history` | All |
 | GET | `/barang/{id}/qr` | All |
-| POST | `/barang` | admin, staff |
-| PUT | `/barang/{id}` | admin, staff |
-| DELETE | `/barang/{id}` | admin, staff |
-| POST | `/barang/{id}/verify` | admin, staff |
+| POST | `/barang` | admin, user |
+| PUT | `/barang/{id}` | admin, user |
+| DELETE | `/barang/{id}` | admin, user |
+| POST | `/barang/{id}/verify` | admin, user |
 
-Upload foto: `multipart/form-data` field `foto`
+Upload foto: `multipart/form-data` field `foto` (JPEG, PNG, atau WebP,
+maksimum 5 MB). File baru disimpan pada disk `public` di `barang/`; path
+relatifnya dicatat pada `barang.foto_barang`. Foto BLOB lama tetap didukung
+oleh endpoint foto untuk kompatibilitas.
 
 ---
 
 ## Kategori
 
 | GET | `/kategori` |
-| POST | `/kategori` | admin, staff |
-| PUT | `/kategori/{id}` | admin, staff |
-| DELETE | `/kategori/{id}` | admin, staff |
+| POST | `/kategori` | admin, user |
+| PUT | `/kategori/{id}` | admin, user |
+| DELETE | `/kategori/{id}` | admin, user |
 
 ---
 
@@ -145,5 +157,4 @@ Upload foto: `multipart/form-data` field `foto`
 | Username | Password | Role |
 |----------|----------|------|
 | admin | password123 | admin |
-| staff | password123 | staff |
-| pimpinan | password123 | pimpinan |
+| user | password123 | user |

@@ -16,7 +16,6 @@ class UserResource extends JsonResource
             'email' => $this->email,
             'role' => $this->role->value,
             'phone' => $this->phone,
-            'foto' => $this->foto ? asset('storage/'.$this->foto) : null,
             'is_active' => $this->is_active,
         ];
     }

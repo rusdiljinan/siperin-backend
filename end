@@ -1,0 +1,13 @@
+[1mdiff --git a/config/cors.php b/config/cors.php[m
+[1mindex 27dec7b..664d55f 100644[m
+[1m--- a/config/cors.php[m
+[1m+++ b/config/cors.php[m
+[36m@@ -1,7 +1,7 @@[m
+ <?php[m
+ [m
+ return [[m
+[31m-    'paths' => ['api/*', 'sanctum/csrf-cookie'],[m
+[32m+[m[32m    'paths' => ['api/*', 'storage/*', 'sanctum/csrf-cookie'],[m
+     'allowed_methods' => ['*'],[m
+     'allowed_origins' => ['*'],[m
+     'allowed_origins_patterns' => [],[m

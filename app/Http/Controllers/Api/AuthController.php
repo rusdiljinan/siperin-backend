@@ -69,7 +69,7 @@ class AuthController extends Controller
                 'username' => $request->username,
                 'email' => $request->email,
                 'password' => $request->password,
-                'role' => $request->role ?? UserRole::Staff->value,
+                'role' => $request->role ?? UserRole::User->value,
                 'phone' => $request->phone,
                 'is_active' => true,
             ]);
@@ -144,9 +144,21 @@ class AuthController extends Controller
                 return $this->error('Token reset tidak valid', 422);
             }
 
-            User::where('email', $request->email)->update([
-                'password' => $request->password,
-            ]);
+            if (now()->diffInMinutes($record->created_at) > 60) {
+                DB::table('password_reset_tokens')->where('email', $request->email)->delete();
+
+                return $this->error('Token reset sudah kedaluwarsa', 410);
+            }
+
+            $user = User::where('email', $request->email)->first();
+            if (! $user) {
+                return $this->error('Akun tidak ditemukan', 404);
+            }
+
+            $user->password = $request->password;
+            $user->email_verified_at ??= now();
+            $user->is_active = true;
+            $user->save();
 
             DB::table('password_reset_tokens')->where('email', $request->email)->delete();
 
@@ -157,4 +169,5 @@ class AuthController extends Controller
             return $this->error('Gagal reset password', 500);
         }
     }
+
 }

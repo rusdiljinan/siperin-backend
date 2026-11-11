@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 class UserManagementTest extends TestCase
@@ -22,28 +23,101 @@ class UserManagementTest extends TestCase
         ]);
     }
 
-    public function test_admin_can_create_user_with_generated_login_and_hashed_password(): void
+    public function test_admin_can_create_user_without_email_and_preserve_hashed_initial_password(): void
     {
+        Mail::fake();
         $this->actingAs($this->admin());
 
         $response = $this->postJson('/api/users', [
             'name' => 'Petugas Inventaris',
-            'role' => 'staff',
+            'role' => 'user',
             'password' => 'Siperin123',
         ]);
 
         $response->assertCreated()
             ->assertJsonPath('data.user.name', 'Petugas Inventaris')
-            ->assertJsonPath('data.user.role', 'staff')
+            ->assertJsonPath('data.user.role', 'user')
             ->assertJsonPath('data.user.is_active', true)
+            ->assertJsonPath('data.login_username', 'petugas.inventaris')
             ->assertJsonMissingPath('data.user.password')
             ->assertJsonMissingPath('data.user.email')
             ->assertJsonMissingPath('data.user.username');
 
-        $username = $response->json('data.login_username');
-        $user = User::where('username', $username)->firstOrFail();
+        $user = User::where('username', 'petugas.inventaris')->firstOrFail();
         $this->assertNotSame('Siperin123', $user->password);
         $this->assertTrue(Hash::check('Siperin123', $user->password));
+        $this->assertSame('petugas.inventaris@users.siperin.local', $user->email);
+        $this->assertDatabaseMissing('password_reset_tokens', ['email' => $user->email]);
+        Mail::assertNothingOutgoing();
+
+        $login = $this->postJson('/api/login', [
+            'username' => 'petugas.inventaris',
+            'password' => 'Siperin123',
+        ])->assertOk()->assertJsonPath('user.role', 'user');
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($login->json('token'))
+            ->postJson('/api/logout')
+            ->assertOk()
+            ->assertJsonPath('message', 'Logout berhasil');
+    }
+
+    public function test_admin_can_create_user_without_email_or_username(): void
+    {
+        Mail::fake();
+        $this->actingAs($this->admin());
+
+        $response = $this->postJson('/api/users', [
+            'name' => 'Petugas Kedua',
+            'role' => 'user',
+        ])->assertCreated()
+            ->assertJsonPath('data.login_username', 'petugas.kedua');
+
+        $user = User::where('id', $response->json('data.user.id'))->firstOrFail();
+        $this->assertSame('petugas.kedua', $user->username);
+        $this->assertSame('petugas.kedua@users.siperin.local', $user->email);
+        $this->assertSame('user', $user->role->value);
+        $this->assertNotEmpty($user->password);
+        Mail::assertNothingOutgoing();
+
+        $response = $this->postJson('/api/users', [
+            'name' => 'Petugas Manual',
+            'email' => 'email-tidak-dipakai@example.test',
+            'username' => 'petugas-tanpa-email',
+            'role' => 'user',
+        ])->assertCreated();
+
+        $this->assertSame(
+            'petugas.manual@users.siperin.local',
+            User::findOrFail($response->json('data.user.id'))->email
+        );
+        $this->assertDatabaseHas('users', [
+            'email' => 'petugas.manual@users.siperin.local',
+            'username' => 'petugas-tanpa-email',
+        ]);
+        Mail::assertNothingOutgoing();
+    }
+
+    public function test_admin_user_creation_validates_username_and_password_without_email(): void
+    {
+        $this->actingAs($this->admin());
+        $payload = [
+            'name' => 'Petugas Baru',
+            'username' => 'petugas-baru',
+            'role' => 'user',
+        ];
+
+        $this->postJson('/api/users', [
+            ...$payload,
+            'username' => 'admin-penguji',
+        ])->assertUnprocessable()->assertJsonValidationErrors('username');
+
+        $this->postJson('/api/users', [
+            ...$payload,
+            'password' => 'invalid',
+        ])->assertUnprocessable()->assertJsonValidationErrors('password');
+
+        $this->assertSame(1, User::count());
     }
 
     public function test_admin_user_endpoints_validate_fields_and_preserve_blank_password(): void
@@ -53,7 +127,7 @@ class UserManagementTest extends TestCase
 
         $this->postJson('/api/users', [
             'name' => ' ',
-            'role' => 'staff',
+            'role' => 'user',
             'password' => 'Siperin123',
         ])->assertUnprocessable()->assertJsonValidationErrors('name');
 
@@ -63,28 +137,36 @@ class UserManagementTest extends TestCase
             'password' => 'Siperin123',
         ])->assertUnprocessable()->assertJsonValidationErrors('role');
 
+        foreach (['staff', 'pimpinan'] as $legacyRole) {
+            $this->postJson('/api/users', [
+                'name' => 'Petugas',
+                'role' => $legacyRole,
+                'password' => 'Siperin123',
+            ])->assertUnprocessable()->assertJsonValidationErrors('role');
+        }
+
         $user = User::factory()->create([
-            'name' => 'Staff Lama',
-            'username' => 'staff-lama',
-            'email' => 'staff-lama@example.test',
-            'role' => 'staff',
+            'name' => 'User Lama',
+            'username' => 'user-lama',
+            'email' => 'user-lama@example.test',
+            'role' => 'user',
             'password' => Hash::make('OldPass123'),
         ]);
 
         $this->putJson("/api/users/{$user->id}", [
-            'name' => 'Staff Baru',
-            'role' => 'pimpinan',
+            'name' => 'User Baru',
+            'role' => 'user',
             'password' => '',
         ])->assertOk()->assertJsonMissingPath('data.password');
 
         $user->refresh();
-        $this->assertSame('Staff Baru', $user->name);
-        $this->assertSame('staff-lama', $user->username);
+        $this->assertSame('User Baru', $user->name);
+        $this->assertSame('user-lama', $user->username);
         $this->assertTrue(Hash::check('OldPass123', $user->password));
 
         $this->putJson("/api/users/{$user->id}", [
-            'name' => 'Staff Baru',
-            'role' => 'pimpinan',
+            'name' => 'User Baru',
+            'role' => 'user',
             'password' => 'NewPass123',
         ])->assertOk();
 
@@ -93,17 +175,15 @@ class UserManagementTest extends TestCase
 
     public function test_non_admin_cannot_access_user_management_endpoints(): void
     {
-        foreach (['staff', 'pimpinan'] as $role) {
-            $user = User::factory()->create([
-                'username' => "{$role}-penguji",
-                'email' => "{$role}-penguji@example.test",
-                'role' => $role,
-            ]);
+        $user = User::factory()->create([
+            'username' => 'user-penguji',
+            'email' => 'user-penguji@example.test',
+            'role' => 'user',
+        ]);
 
-            $this->actingAs($user)
-                ->getJson('/api/users')
-                ->assertForbidden();
-        }
+        $this->actingAs($user)
+            ->getJson('/api/users')
+            ->assertForbidden();
     }
 
     public function test_admin_cannot_deactivate_self_or_last_active_admin(): void
@@ -142,9 +222,9 @@ class UserManagementTest extends TestCase
     {
         $admin = $this->admin();
         $user = User::factory()->create([
-            'username' => 'staff-hapus',
-            'email' => 'staff-hapus@example.test',
-            'role' => 'staff',
+            'username' => 'user-hapus',
+            'email' => 'user-hapus@example.test',
+            'role' => 'user',
         ]);
         $token = $user->createToken('mobile')->accessToken;
 
@@ -197,7 +277,7 @@ class UserManagementTest extends TestCase
         $this->getJson('/api/users/999999')->assertNotFound();
         $this->putJson('/api/users/999999', [
             'name' => 'Nama Baru',
-            'role' => 'staff',
+            'role' => 'user',
         ])->assertNotFound();
         $this->patchJson('/api/users/999999/status', [
             'is_active' => false,
@@ -209,7 +289,7 @@ class UserManagementTest extends TestCase
         User::factory()->create([
             'username' => 'akun-nonaktif',
             'email' => 'akun-nonaktif@example.test',
-            'role' => 'staff',
+            'role' => 'user',
             'is_active' => false,
             'password' => Hash::make('Siperin123'),
         ]);
@@ -226,7 +306,7 @@ class UserManagementTest extends TestCase
             'name' => 'Pengguna Lama',
             'username' => 'pengguna-lama',
             'email' => 'pengguna-lama@example.test',
-            'role' => 'staff',
+            'role' => 'user',
             'is_active' => true,
             'password' => Hash::make('OldPass123'),
         ]);

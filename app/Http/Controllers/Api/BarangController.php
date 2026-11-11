@@ -13,16 +13,16 @@ use App\Models\Laporan;
 use App\Repositories\BarangRepository;
 use App\Services\ActivityLogService;
 use App\Services\BarangClassificationService;
+use App\Services\InventoryRuleBasedService;
 use App\Services\NotificationService;
 use App\Services\QrCodeService;
 use App\Traits\ApiResponse;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 
 class BarangController extends Controller
@@ -55,6 +55,9 @@ class BarangController extends Controller
 
     public function store(StoreBarangRequest $request): JsonResponse
     {
+        $storedPhotoPath = null;
+        $photoReferenceSaved = false;
+
         try {
             $data = $request->validated();
             // keep score fields if present; remove form-only keys
@@ -83,7 +86,7 @@ class BarangController extends Controller
                 foreach ($scoreKeys as $k) {
                     $scores[$k] = (int) $request->input($k, 0);
                 }
-                $rbs = new \App\Services\InventoryRuleBasedService();
+                $rbs = new InventoryRuleBasedService;
                 $result = $rbs->evaluate($scores);
 
                 // attach scores and total to data
@@ -99,12 +102,17 @@ class BarangController extends Controller
             $data['status'] = $data['status'] ?? 'Aktif';
 
             if ($request->hasFile('foto')) {
-                $foto = $request->file('foto');
-                $data['foto_blob'] = $foto->get();
-                $data['foto_mime'] = $foto->getMimeType();
+                $storedPhotoPath = $request->file('foto')->store('barang', 'public');
+                if (! $storedPhotoPath) {
+                    throw new \RuntimeException('Foto inventaris gagal disimpan.');
+                }
+                $data['foto_barang'] = $storedPhotoPath;
+                $data['foto_blob'] = null;
+                $data['foto_mime'] = null;
             }
 
             $barang = $this->barangRepo->create($data);
+            $photoReferenceSaved = $storedPhotoPath !== null;
             $this->classification->apply($barang)->save();
             $this->qrCode->generateForBarang($barang);
 
@@ -131,6 +139,16 @@ class BarangController extends Controller
 
             return $this->success(new BarangResource($barang->load('kategori')), 'Barang berhasil disimpan', 201);
         } catch (\Throwable $e) {
+            if (
+                $storedPhotoPath
+                && ! $photoReferenceSaved
+                && ! Storage::disk('public')->delete($storedPhotoPath)
+                && Storage::disk('public')->exists($storedPhotoPath)
+            ) {
+                Log::warning('Gagal membersihkan foto inventaris yang tidak terpakai.', [
+                    'path' => $storedPhotoPath,
+                ]);
+            }
             Log::error('Gagal menyimpan inventaris baru.', ['exception' => $e]);
 
             return $this->error('Gagal menyimpan barang ke database. Silakan coba kembali.', 500);
@@ -158,18 +176,9 @@ class BarangController extends Controller
             return $this->error('Barang tidak ditemukan', 404);
         }
 
-        if ($barang->foto_blob !== null && $barang->foto_blob !== '') {
-            return response($barang->foto_blob, 200, [
-                'Content-Type' => $barang->foto_mime ?: 'application/octet-stream',
-                'Cache-Control' => 'private, max-age=3600',
-                'X-Content-Type-Options' => 'nosniff',
-            ]);
-        }
-
         if ($barang->foto_barang && Storage::disk('public')->exists($barang->foto_barang)) {
             $contents = Storage::disk('public')->get($barang->foto_barang);
             $mime = (new \finfo(FILEINFO_MIME_TYPE))->buffer($contents);
-
             if (is_string($mime) && str_starts_with($mime, 'image/')) {
                 return response($contents, 200, [
                     'Content-Type' => $mime,
@@ -177,6 +186,14 @@ class BarangController extends Controller
                     'X-Content-Type-Options' => 'nosniff',
                 ]);
             }
+        }
+
+        if ($barang->foto_blob !== null && $barang->foto_blob !== '') {
+            return response($barang->foto_blob, 200, [
+                'Content-Type' => $barang->foto_mime ?: 'application/octet-stream',
+                'Cache-Control' => 'private, max-age=3600',
+                'X-Content-Type-Options' => 'nosniff',
+            ]);
         }
 
         return $this->error('Foto barang tidak tersedia', 404);
@@ -189,6 +206,9 @@ class BarangController extends Controller
         if (! $barang) {
             return $this->error('Barang tidak ditemukan', 404);
         }
+
+        $newFotoPath = null;
+        $photoReferenceUpdated = false;
 
         try {
             $kondisiLama = $barang->kondisi_barang;
@@ -227,7 +247,7 @@ class BarangController extends Controller
                 foreach ($scoreKeys as $k) {
                     $scores[$k] = (int) $request->input($k, 0);
                 }
-                $rbs = new \App\Services\InventoryRuleBasedService();
+                $rbs = new InventoryRuleBasedService;
                 $result = $rbs->evaluate($scores);
 
                 foreach ($scores as $k => $v) {
@@ -247,15 +267,36 @@ class BarangController extends Controller
                 $data['foto_mime'] = null;
             } elseif ($request->hasFile('foto')) {
                 $foto = $request->file('foto');
-                $data['foto_barang'] = null;
-                $data['foto_blob'] = $foto->get();
-                $data['foto_mime'] = $foto->getMimeType();
+                $newFotoPath = $foto->store('barang', 'public');
+                if (! $newFotoPath) {
+                    throw new \RuntimeException('Foto inventaris gagal disimpan.');
+                }
+                $data['foto_barang'] = $newFotoPath;
+                $data['foto_blob'] = null;
+                $data['foto_mime'] = null;
             }
 
             $barang = $this->barangRepo->update($barang, $data);
+            $photoReferenceUpdated = $request->hasFile('foto') || $request->boolean('remove_foto');
 
-            if (($request->hasFile('foto') || $request->boolean('remove_foto')) && $oldFotoPath) {
-                Storage::disk('public')->delete($oldFotoPath);
+            if (
+                $photoReferenceUpdated
+                && $oldFotoPath
+                && $oldFotoPath !== $barang->foto_barang
+                && ! Barang::query()
+                    ->where('foto_barang', $oldFotoPath)
+                    ->where('id', '<>', $barang->id)
+                    ->exists()
+            ) {
+                if (
+                    ! Storage::disk('public')->delete($oldFotoPath)
+                    && Storage::disk('public')->exists($oldFotoPath)
+                ) {
+                    Log::warning('Foto inventaris lama tidak dapat dihapus dari storage.', [
+                        'barang_id' => $barang->id,
+                        'path' => $oldFotoPath,
+                    ]);
+                }
             }
             $this->classification->apply($barang)->save();
 
@@ -290,6 +331,17 @@ class BarangController extends Controller
 
             return $this->success(new BarangResource($barang), 'Barang berhasil diperbarui');
         } catch (\Throwable $e) {
+            if (
+                $newFotoPath
+                && ! $photoReferenceUpdated
+                && ! Storage::disk('public')->delete($newFotoPath)
+                && Storage::disk('public')->exists($newFotoPath)
+            ) {
+                Log::warning('Gagal membersihkan foto inventaris yang tidak terpakai.', [
+                    'barang_id' => $id,
+                    'path' => $newFotoPath,
+                ]);
+            }
             Log::error('Gagal memperbarui inventaris.', [
                 'barang_id' => $id,
                 'exception' => $e,
@@ -310,14 +362,33 @@ class BarangController extends Controller
         $user = Auth::user();
         $nama = $barang->nama_barang;
 
-        if ($barang->foto_barang) {
-            Storage::disk('public')->delete($barang->foto_barang);
-        }
-        if ($barang->qr_code_path) {
-            Storage::disk('public')->delete($barang->qr_code_path);
-        }
+        $fotoPath = $barang->foto_barang;
+        $qrCodePath = $barang->qr_code_path;
 
         $this->barangRepo->delete($barang);
+
+        if (
+            $fotoPath
+            && ! Barang::query()->where('foto_barang', $fotoPath)->exists()
+            && ! Storage::disk('public')->delete($fotoPath)
+            && Storage::disk('public')->exists($fotoPath)
+        ) {
+            Log::warning('Foto inventaris tidak dapat dihapus dari storage.', [
+                'barang_id' => $id,
+                'path' => $fotoPath,
+            ]);
+        }
+        if ($qrCodePath) {
+            if (
+                ! Storage::disk('public')->delete($qrCodePath)
+                && Storage::disk('public')->exists($qrCodePath)
+            ) {
+                Log::warning('QR code inventaris tidak dapat dihapus dari storage.', [
+                    'barang_id' => $id,
+                    'path' => $qrCodePath,
+                ]);
+            }
+        }
 
         $this->activityLog->log($user, 'hapus', "Inventaris {$nama} dihapus permanen oleh {$user->name}");
 

@@ -37,7 +37,7 @@ class LaporanInventarisTest extends TestCase
 
     public function test_weekly_report_uses_monday_through_sunday_and_custom_dates_validate(): void
     {
-        $this->actingAs($this->user('staff'));
+        $this->actingAs($this->user('user'));
         $reference = Carbon::parse('2040-06-07');
         $weekStart = $reference->copy()->startOfWeek();
         $this->createBarang('WEEK-IN', 1, 2000, 'Baik', $weekStart->toDateString());
@@ -61,19 +61,19 @@ class LaporanInventarisTest extends TestCase
             ->assertJsonValidationErrors('start_date');
     }
 
-    public function test_report_endpoints_require_authentication_and_allow_pimpinan_role(): void
+    public function test_report_endpoints_require_authentication_and_allow_user_role(): void
     {
         $this->getJson('/api/laporan-inventaris?period=monthly&reference_date=2026-10-11')
             ->assertUnauthorized();
 
-        $this->actingAs($this->user('pimpinan'))
+        $this->actingAs($this->user('user'))
             ->getJson('/api/laporan-inventaris?period=monthly&reference_date=2026-10-11')
             ->assertOk();
     }
 
     public function test_empty_report_returns_empty_condition_object_and_items(): void
     {
-        $this->actingAs($this->user('staff'));
+        $this->actingAs($this->user('user'));
 
         $response = $this->getJson('/api/laporan-inventaris?period=monthly&reference_date=2040-06-11')
             ->assertOk()
@@ -89,7 +89,7 @@ class LaporanInventarisTest extends TestCase
 
     public function test_all_period_returns_every_active_inventory_without_date_filter(): void
     {
-        $this->actingAs($this->user('staff'));
+        $this->actingAs($this->user('user'));
         $this->createBarang('ALL-OLD', 2, 3000, 'Baik', '2020-01-05');
         $this->createBarang('ALL-NEW', 4, 5000, 'Rusak', '2040-06-12');
         $deleted = $this->createBarang('ALL-DELETED', 8, 1000, 'Baik', '2040-06-12');
@@ -115,7 +115,7 @@ class LaporanInventarisTest extends TestCase
     public function test_report_tracks_inventory_created_updated_and_deleted_through_api(): void
     {
         Storage::fake('public');
-        $this->actingAs($this->user('staff'));
+        $this->actingAs($this->user('user'));
         $category = Kategori::firstOrCreate(['nama_kategori' => 'Kategori Laporan']);
 
         $created = $this->postJson('/api/barang', [
@@ -163,7 +163,7 @@ class LaporanInventarisTest extends TestCase
 
     public function test_pdf_and_excel_exports_return_real_files_with_same_period_filter(): void
     {
-        $this->actingAs($this->user('staff'));
+        $this->actingAs($this->user('user'));
         $this->createBarang('EXPORT-01', 2, 15000, 'Baik', '2040-06-06');
         $query = '?period=weekly&reference_date=2040-06-07';
 

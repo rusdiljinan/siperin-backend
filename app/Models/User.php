@@ -22,7 +22,6 @@ class User extends Authenticatable
         'password',
         'role',
         'phone',
-        'foto',
         'is_active',
     ];
 
@@ -46,9 +45,9 @@ class User extends Authenticatable
         return $this->role === UserRole::Admin;
     }
 
-    public function isPimpinan(): bool
+    public function isUser(): bool
     {
-        return $this->role === UserRole::Pimpinan;
+        return $this->role === UserRole::User;
     }
 
     public function barangDibuat(): HasMany

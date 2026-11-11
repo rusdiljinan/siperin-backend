@@ -3,13 +3,14 @@
 use App\Http\Controllers\Api\AktivitasController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BarangController;
-use App\Http\Controllers\Api\LaporanInventarisController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\KategoriController;
+use App\Http\Controllers\Api\LaporanInventarisController;
 use App\Http\Controllers\Api\NotifikasiController;
 use App\Http\Controllers\Api\PerbaikanController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\UserManagementController;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -20,10 +21,10 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/health', function () {
     try {
-        \Illuminate\Support\Facades\DB::connection()->getPdo();
+        DB::connection()->getPdo();
         $dbOk = true;
-        $dbName = \Illuminate\Support\Facades\DB::connection()->getDatabaseName();
-    } catch (\Throwable $e) {
+        $dbName = DB::connection()->getDatabaseName();
+    } catch (Throwable $e) {
         $dbOk = false;
         $dbName = null;
     }
@@ -87,7 +88,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/kategori', [KategoriController::class, 'index']);
     Route::get('/kategori/{kategori}', [KategoriController::class, 'show']);
 
-    Route::middleware('role:admin,staff')->group(function () {
+    Route::middleware('role:admin,user')->group(function () {
         Route::post('/barang', [BarangController::class, 'store']);
         Route::match(['put', 'post'], '/barang/{id}', [BarangController::class, 'update']);
         Route::delete('/barang/{id}', [BarangController::class, 'destroy']);

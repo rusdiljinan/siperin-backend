@@ -26,21 +26,12 @@ class DatabaseSeeder extends Seeder
             'is_active' => true,
         ]);
 
-        $staff = User::create([
-            'name' => 'Staff Inventaris',
-            'username' => 'staff',
-            'email' => 'staff@siperin.go.id',
+        $user = User::create([
+            'name' => 'User Inventaris',
+            'username' => 'user',
+            'email' => 'user@siperin.go.id',
             'password' => Hash::make('password123'),
-            'role' => UserRole::Staff,
-            'is_active' => true,
-        ]);
-
-        $pimpinan = User::create([
-            'name' => 'Pimpinan Dinas',
-            'username' => 'pimpinan',
-            'email' => 'pimpinan@siperin.go.id',
-            'password' => Hash::make('password123'),
-            'role' => UserRole::Pimpinan,
+            'role' => UserRole::User,
             'is_active' => true,
         ]);
 
@@ -87,7 +78,7 @@ class DatabaseSeeder extends Seeder
                 'kondisi_barang' => KondisiBarang::Baik->value,
                 'lokasi_ruangan' => 'Ruang Rapat',
                 'status' => 'Aktif',
-                'created_by' => $staff->id,
+                'created_by' => $user->id,
             ],
             [
                 'kategori_id' => 1,
@@ -112,7 +103,7 @@ class DatabaseSeeder extends Seeder
                 'kondisi_barang' => KondisiBarang::SangatBaik->value,
                 'lokasi_ruangan' => 'Ruang Sekretariat',
                 'status' => 'Aktif',
-                'created_by' => $staff->id,
+                'created_by' => $user->id,
             ],
             [
                 'kategori_id' => 1,
@@ -125,7 +116,7 @@ class DatabaseSeeder extends Seeder
                 'kondisi_barang' => KondisiBarang::Baik->value,
                 'lokasi_ruangan' => 'Ruang Arsip',
                 'status' => 'Aktif',
-                'created_by' => $staff->id,
+                'created_by' => $user->id,
             ],
         ];
 
@@ -143,11 +134,11 @@ class DatabaseSeeder extends Seeder
         ]);
 
         HistoryAktivitas::create([
-            'user_id' => $staff->id,
+            'user_id' => $user->id,
             'aktivitas' => 'edit',
             'target_type' => 'barang',
             'target_id' => 2,
-            'deskripsi' => 'Kursi Pelatihan diperbaharui oleh Staff',
+            'deskripsi' => 'Kursi Pelatihan diperbaharui oleh User',
         ]);
 
         HistoryAktivitas::create([
@@ -157,6 +148,6 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $this->command->info('SIPERIN seeder selesai!');
-        $this->command->info('Login: admin / staff / pimpinan — password: password123');
+        $this->command->info('Login: admin / user — password: password123');
     }
 }

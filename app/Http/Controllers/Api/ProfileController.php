@@ -7,8 +7,10 @@ use App\Http\Resources\UserResource;
 use App\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class ProfileController extends Controller
 {
@@ -23,23 +25,24 @@ class ProfileController extends Controller
             'email' => ['sometimes', 'email', 'unique:users,email,'.$user->id],
             'phone' => ['nullable', 'string', 'max:20'],
             'password' => ['nullable', 'string', 'min:6', 'confirmed'],
-            'foto' => ['nullable', 'image', 'mimes:jpeg,jpg,png', 'max:2048'],
         ]);
 
-        if ($request->hasFile('foto')) {
-            if ($user->foto) {
-                Storage::disk('public')->delete($user->foto);
+        try {
+            if (! empty($validated['password'])) {
+                $validated['password'] = Hash::make($validated['password']);
+            } else {
+                unset($validated['password']);
             }
-            $validated['foto'] = $request->file('foto')->store('users', 'public');
-        }
 
-        if (! empty($validated['password'])) {
-            $validated['password'] = Hash::make($validated['password']);
-        } else {
-            unset($validated['password']);
-        }
+            DB::transaction(fn () => $user->update($validated));
+        } catch (Throwable $e) {
+            Log::error('Gagal memperbarui profil pengguna.', [
+                'user_id' => $user->id,
+                'exception' => $e,
+            ]);
 
-        $user->update($validated);
+            return $this->error('Profil gagal diperbarui. Silakan coba kembali.', 500);
+        }
 
         return $this->success(new UserResource($user->fresh()), 'Profil berhasil diperbarui');
     }
