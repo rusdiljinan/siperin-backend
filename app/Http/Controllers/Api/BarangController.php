@@ -21,6 +21,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
@@ -393,6 +394,64 @@ class BarangController extends Controller
         $this->activityLog->log($user, 'hapus', "Inventaris {$nama} dihapus permanen oleh {$user->name}");
 
         return $this->success(null, 'Barang berhasil dihapus dari database');
+    }
+
+    public function bulkDestroy(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1', 'max:500'],
+            'ids.*' => ['required', 'integer', 'distinct', 'exists:barang,id'],
+        ]);
+
+        $barangs = Barang::query()->whereIn('id', $validated['ids'])->get();
+        if ($barangs->count() !== count($validated['ids'])) {
+            return $this->error('Satu atau beberapa barang tidak ditemukan', 404);
+        }
+
+        $user = Auth::user();
+        $deleted = $barangs->map(fn (Barang $barang) => [
+            'id' => $barang->id,
+            'nama' => $barang->nama_barang,
+            'foto' => $barang->foto_barang,
+            'qr' => $barang->qr_code_path,
+        ])->all();
+
+        DB::transaction(function () use ($barangs, $user): void {
+            foreach ($barangs as $barang) {
+                $barang->forceDelete();
+                $this->activityLog->log(
+                    $user,
+                    'hapus',
+                    "Inventaris {$barang->nama_barang} dihapus permanen oleh {$user->name}"
+                );
+            }
+        });
+
+        foreach ($deleted as $item) {
+            if (
+                $item['foto']
+                && ! Barang::query()->where('foto_barang', $item['foto'])->exists()
+                && ! Storage::disk('public')->delete($item['foto'])
+                && Storage::disk('public')->exists($item['foto'])
+            ) {
+                Log::warning('Foto inventaris tidak dapat dihapus dari storage.', [
+                    'barang_id' => $item['id'],
+                    'path' => $item['foto'],
+                ]);
+            }
+            if (
+                $item['qr']
+                && ! Storage::disk('public')->delete($item['qr'])
+                && Storage::disk('public')->exists($item['qr'])
+            ) {
+                Log::warning('QR code inventaris tidak dapat dihapus dari storage.', [
+                    'barang_id' => $item['id'],
+                    'path' => $item['qr'],
+                ]);
+            }
+        }
+
+        return $this->success(null, count($deleted).' barang berhasil dihapus dari database');
     }
 
     public function history(int $id): JsonResponse
