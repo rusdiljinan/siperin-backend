@@ -62,7 +62,26 @@ class BarangRepository
 
     public function paginate(array $filters = [], int $perPage = 10): LengthAwarePaginator
     {
-        return $this->query($filters)->paginate($perPage);
+        $query = $this->query($filters)->reorder();
+
+        if (! empty($filters['kondisi'])) {
+            $query->where('barang.kondisi_barang', $filters['kondisi']);
+        }
+
+        $sortBy = $filters['sort_by'] ?? 'nama_barang';
+        $sortDir = ($filters['sort_dir'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
+        $allowedSorts = ['nama_barang', 'kode_barang', 'tahun_pembelian', 'kondisi_barang', 'created_at'];
+
+        if (in_array($sortBy, $allowedSorts, true)) {
+            $query->orderBy("barang.{$sortBy}", $sortDir);
+        } else {
+            $query->orderByDesc('barang.created_at');
+            $sortDir = 'desc';
+        }
+
+        return $query
+            ->orderBy('barang.id', $sortDir)
+            ->paginate($perPage);
     }
 
     public function find(int $id): ?Barang
