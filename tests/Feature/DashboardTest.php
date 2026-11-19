@@ -33,6 +33,12 @@ class DashboardTest extends TestCase
 
             $this->getJson('/api/dashboard')
                 ->assertOk()
+                ->assertJsonPath('data.total_barang', 7)
+                ->assertJsonPath('data.total', 7)
+                ->assertJsonPath('data.total_kategori', 1)
+                ->assertJsonPath('data.barang_baik', 5)
+                ->assertJsonPath('data.barang_rusak', 2)
+                ->assertJsonPath('data.barang_perbaikan', 0)
                 ->assertJsonPath('data.chart_year', 2026)
                 ->assertJsonCount(12, 'data.chart')
                 ->assertJsonPath('data.chart.0.label', 'Jan')
@@ -47,6 +53,45 @@ class DashboardTest extends TestCase
         } finally {
             Carbon::setTestNow();
         }
+    }
+
+    public function test_dashboard_returns_zero_statistics_when_inventory_is_empty(): void
+    {
+        $this->actingAs(User::factory()->create([
+            'username' => 'dashboard-empty-'.fake()->unique()->numerify('#####'),
+            'role' => 'user',
+        ]));
+
+        $this->getJson('/api/dashboard')
+            ->assertOk()
+            ->assertJsonPath('data.total_barang', 0)
+            ->assertJsonPath('data.total_kategori', 0)
+            ->assertJsonPath('data.barang_baik', 0)
+            ->assertJsonPath('data.barang_rusak', 0)
+            ->assertJsonPath('data.barang_perbaikan', 0)
+            ->assertJsonCount(12, 'data.chart')
+            ->assertJsonPath('data.chart.0.sangat_baik', 0)
+            ->assertJsonPath('data.chart.0.baik', 0)
+            ->assertJsonPath('data.chart.0.rusak', 0);
+    }
+
+    public function test_dashboard_requires_authentication(): void
+    {
+        $this->getJson('/api/dashboard')
+            ->assertUnauthorized()
+            ->assertJsonPath('success', false);
+    }
+
+    public function test_admin_can_access_dashboard(): void
+    {
+        $this->actingAs(User::factory()->create([
+            'username' => 'dashboard-admin-'.fake()->unique()->numerify('#####'),
+            'role' => 'admin',
+        ]));
+
+        $this->getJson('/api/dashboard')
+            ->assertOk()
+            ->assertJsonPath('success', true);
     }
 
     private function createBarang(

@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\PerbaikanController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\UserManagementController;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -25,6 +26,9 @@ Route::get('/health', function () {
         $dbOk = true;
         $dbName = DB::connection()->getDatabaseName();
     } catch (Throwable $e) {
+        Log::error('API database health check failed.', [
+            'exception' => $e,
+        ]);
         $dbOk = false;
         $dbName = null;
     }
