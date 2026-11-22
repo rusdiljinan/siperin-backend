@@ -54,7 +54,14 @@ class StoreBarangRequest extends FormRequest
     {
         $kategoriId = $this->kategori_id;
         if (! $kategoriId && $this->filled('kategori')) {
-            $kategoriId = Kategori::where('nama_kategori', $this->kategori)->value('id');
+            $allowedCategories = ['Elektronik', 'Furniture', 'Kendaraan', 'Alat Tulis', 'Lainnya'];
+            $kategoriName = trim((string) $this->kategori);
+
+            if (in_array($kategoriName, $allowedCategories, true)) {
+                $kategoriId = Kategori::firstOrCreate([
+                    'nama_kategori' => $kategoriName,
+                ])->id;
+            }
         }
 
         $this->merge([
@@ -71,7 +78,10 @@ class StoreBarangRequest extends FormRequest
     {
         $validator->after(function ($validator) {
             if (! $this->kategori_id) {
-                $validator->errors()->add('kategori', 'Kategori wajib dipilih atau tidak ditemukan di database.');
+                $message = $this->filled('kategori')
+                    ? 'Kategori yang dipilih tidak tersedia. Silakan muat ulang daftar kategori.'
+                    : 'Silakan pilih kategori barang.';
+                $validator->errors()->add('kategori', $message);
             }
         });
     }

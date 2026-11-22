@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Kategori\StoreKategoriRequest;
 use App\Http\Requests\Kategori\UpdateKategoriRequest;
 use App\Http\Resources\KategoriResource;
+use App\Models\Kategori;
 use App\Repositories\KategoriRepository;
 use App\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
@@ -18,6 +19,21 @@ class KategoriController extends Controller
 
     public function index(): JsonResponse
     {
+        $defaultCategories = [
+            ['nama_kategori' => 'Elektronik', 'deskripsi' => 'Perangkat elektronik kantor'],
+            ['nama_kategori' => 'Furniture', 'deskripsi' => 'Meja, kursi, lemari'],
+            ['nama_kategori' => 'Kendaraan', 'deskripsi' => 'Kendaraan dinas'],
+            ['nama_kategori' => 'Alat Tulis', 'deskripsi' => 'ATK dan perlengkapan'],
+            ['nama_kategori' => 'Lainnya', 'deskripsi' => 'Kategori lainnya'],
+        ];
+
+        foreach ($defaultCategories as $category) {
+            Kategori::firstOrCreate(
+                ['nama_kategori' => $category['nama_kategori']],
+                ['deskripsi' => $category['deskripsi']]
+            );
+        }
+
         $kategori = $this->kategoriRepo->all()->loadCount('barang');
 
         return $this->success(KategoriResource::collection($kategori), 'Data kategori berhasil diambil');
