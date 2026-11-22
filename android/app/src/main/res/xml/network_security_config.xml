@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Allow cleartext (HTTP) traffic for development/testing -->
+    <!-- For production, use HTTPS only and remove this config -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="true">127.0.0.1</domain>
+        <domain includeSubdomains="true">10.0.2.2</domain>
+        <!-- Add your development server IP here -->
+        <!-- Example: <domain includeSubdomains="true">192.168.1.100</domain> -->
+    </domain-config>
+
+    <!-- For production APIs, ensure they use HTTPS -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">api.example.com</domain>
+    </domain-config>
+</network-security-config>
