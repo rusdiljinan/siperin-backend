@@ -37,7 +37,6 @@ class Barang extends Model
         'foto_barang',
         'foto_blob',
         'foto_mime',
-        'qr_code_path',
         'status',
         'status_perawatan',
         'created_by',

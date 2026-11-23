@@ -87,7 +87,6 @@ Route::middleware('auth:sanctum')->group(function () {
         ->where('format', 'pdf|excel');
     Route::get('/barang/{id}', [BarangController::class, 'show']);
     Route::get('/barang/{id}/history', [BarangController::class, 'history']);
-    Route::get('/barang/{id}/qr', [BarangController::class, 'qrCode']);
     Route::middleware('role:admin')->delete(
         '/barang/bulk-delete',
         [BarangController::class, 'bulkDestroy']

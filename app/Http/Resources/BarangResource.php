@@ -44,7 +44,6 @@ class BarangResource extends JsonResource
             'foto_url' => $fotoUrl,
             'foto_barang' => $fotoUrl,
             'has_foto' => $hasFoto,
-            'qr_code_path' => $this->qr_code_path ? asset('storage/'.$this->qr_code_path) : null,
             'status' => $this->status,
             'status_perawatan' => $this->status_perawatan,
             'kategori' => $this->whenLoaded('kategori', fn () => $this->kategori->nama_kategori),

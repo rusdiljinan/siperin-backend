@@ -15,7 +15,6 @@ use App\Services\ActivityLogService;
 use App\Services\BarangClassificationService;
 use App\Services\InventoryRuleBasedService;
 use App\Services\NotificationService;
-use App\Services\QrCodeService;
 use App\Traits\ApiResponse;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -35,7 +34,6 @@ class BarangController extends Controller
         protected BarangClassificationService $classification,
         protected ActivityLogService $activityLog,
         protected NotificationService $notification,
-        protected QrCodeService $qrCode,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -115,7 +113,6 @@ class BarangController extends Controller
             $barang = $this->barangRepo->create($data);
             $photoReferenceSaved = $storedPhotoPath !== null;
             $this->classification->apply($barang)->save();
-            $this->qrCode->generateForBarang($barang);
 
             if ($barang->kondisi_barang === 'Rusak') {
                 $this->notification->notifyBarangRusak($barang);
@@ -364,7 +361,6 @@ class BarangController extends Controller
         $nama = $barang->nama_barang;
 
         $fotoPath = $barang->foto_barang;
-        $qrCodePath = $barang->qr_code_path;
 
         $this->barangRepo->delete($barang);
 
@@ -378,17 +374,6 @@ class BarangController extends Controller
                 'barang_id' => $id,
                 'path' => $fotoPath,
             ]);
-        }
-        if ($qrCodePath) {
-            if (
-                ! Storage::disk('public')->delete($qrCodePath)
-                && Storage::disk('public')->exists($qrCodePath)
-            ) {
-                Log::warning('QR code inventaris tidak dapat dihapus dari storage.', [
-                    'barang_id' => $id,
-                    'path' => $qrCodePath,
-                ]);
-            }
         }
 
         $this->activityLog->log($user, 'hapus', "Inventaris {$nama} dihapus permanen oleh {$user->name}");
@@ -413,7 +398,6 @@ class BarangController extends Controller
             'id' => $barang->id,
             'nama' => $barang->nama_barang,
             'foto' => $barang->foto_barang,
-            'qr' => $barang->qr_code_path,
         ])->all();
 
         DB::transaction(function () use ($barangs, $user): void {
@@ -437,16 +421,6 @@ class BarangController extends Controller
                 Log::warning('Foto inventaris tidak dapat dihapus dari storage.', [
                     'barang_id' => $item['id'],
                     'path' => $item['foto'],
-                ]);
-            }
-            if (
-                $item['qr']
-                && ! Storage::disk('public')->delete($item['qr'])
-                && Storage::disk('public')->exists($item['qr'])
-            ) {
-                Log::warning('QR code inventaris tidak dapat dihapus dari storage.', [
-                    'barang_id' => $item['id'],
-                    'path' => $item['qr'],
                 ]);
             }
         }
@@ -539,20 +513,4 @@ class BarangController extends Controller
         return $this->error('Format export tidak didukung', 422);
     }
 
-    public function qrCode(int $id): JsonResponse
-    {
-        $barang = $this->barangRepo->find($id);
-
-        if (! $barang) {
-            return $this->error('Barang tidak ditemukan', 404);
-        }
-
-        $svg = $this->qrCode->getSvgContent($barang);
-
-        return $this->success([
-            'kode_barang' => $barang->kode_barang,
-            'qr_url' => $barang->qr_code_path ? asset('storage/'.$barang->qr_code_path) : null,
-            'qr_svg' => $svg,
-        ], 'QR Code berhasil dibuat');
-    }
 }
