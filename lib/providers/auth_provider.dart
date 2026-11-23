@@ -33,20 +33,21 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<bool> login(String username, String password) async {
+    if (_isLoading) return false;
+
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
       _user = await _authService.login(username, password);
-      _isLoading = false;
-      notifyListeners();
       return true;
     } catch (e) {
       _error = e.toString().replaceFirst('Exception: ', '');
+      return false;
+    } finally {
       _isLoading = false;
       notifyListeners();
-      return false;
     }
   }
 

@@ -46,25 +46,6 @@ class AppScaffoldShell extends StatelessWidget {
   Widget _buildScaffold(BuildContext context, Orientation orientation) {
     // ✅ RESPONSIVE FIX: Use >= 1024 breakpoint for sidebar (not >= 600)
     final isDesktop = Responsive.isDesktop(context);
-    final destinations = <NavigationDestination>[
-      const NavigationDestination(
-        icon: Icon(Icons.dashboard_outlined),
-        label: 'Dashboard',
-      ),
-      const NavigationDestination(
-        icon: Icon(Icons.inventory_2_outlined),
-        label: 'Inventaris',
-      ),
-      const NavigationDestination(
-        icon: Icon(Icons.build_circle_outlined),
-        label: 'Perbaikan',
-      ),
-      const NavigationDestination(icon: Icon(Icons.history), label: 'Riwayat'),
-      const NavigationDestination(
-        icon: Icon(Icons.person_outline),
-        label: 'Profile',
-      ),
-    ];
     final location = GoRouterState.of(context).uri.toString();
     final currentBase = (selectedIndex >= 0 && selectedIndex < _routes.length)
         ? _routes[selectedIndex]
@@ -203,14 +184,6 @@ class AppScaffoldShell extends StatelessWidget {
             )
           : null,
       body: child,
-      bottomNavigationBar: Responsive.isMobile(context) || selectedIndex == 5
-          ? null
-          : NavigationBar(
-              selectedIndex: selectedIndex.clamp(0, destinations.length - 1),
-              animationDuration: const Duration(milliseconds: 400),
-              onDestinationSelected: (i) => _navigate(context, i),
-              destinations: destinations,
-            ),
     );
   }
 }

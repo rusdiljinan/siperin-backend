@@ -55,6 +55,7 @@ class _LaporanInventarisPageState extends State<LaporanInventarisPage> {
   }
 
   Future<void> _loadReport() async {
+    if (_loading) return;
     if (_period == 'custom') {
       if (_startDate == null || _endDate == null) {
         setState(() => _error = 'Tanggal mulai dan akhir wajib dipilih.');
@@ -186,7 +187,8 @@ class _LaporanInventarisPageState extends State<LaporanInventarisPage> {
       future: _reportFuture,
       builder: (context, snapshot) {
         final report = snapshot.data;
-        return RefreshIndicator(
+        return Responsive.withPullToRefresh(
+          context,
           onRefresh: _loadReport,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -240,11 +242,22 @@ class _LaporanInventarisPageState extends State<LaporanInventarisPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Filter Laporan',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Filter Laporan',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                Responsive.refreshButton(
+                  context,
+                  loading: _loading,
+                  onRefresh: _loadReport,
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(

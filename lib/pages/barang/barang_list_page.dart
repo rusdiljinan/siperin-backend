@@ -93,23 +93,37 @@ class _BarangListPageState extends State<BarangListPage> {
           ),
         _buildToolbar(context, provider),
         Expanded(
-          child: provider.loading
-              ? ListView.builder(
-                  itemCount: 6,
-                  controller: _scrollController,
-                  padding: Responsive.adaptivePadding(context),
-                  itemBuilder: (ctx2, __) => Padding(
-                    padding: Responsive.adaptivePadding(ctx2),
-                    child: const LoadingSkeleton(height: 72),
-                  ),
-                )
-              : provider.items.isEmpty
-              ? provider.hasMore
-                    ? const Center(child: CircularProgressIndicator())
-                    : _buildEmptyState(context)
-              : useCardLayout
-              ? _buildCardList(context, provider)
-              : _buildDesktopTable(context, provider),
+          child: Responsive.withPullToRefresh(
+            context,
+            onRefresh: () => _refresh(provider),
+            child: provider.loading
+                ? ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    itemCount: 6,
+                    controller: _scrollController,
+                    padding: Responsive.adaptivePadding(context),
+                    itemBuilder: (ctx2, __) => Padding(
+                      padding: Responsive.adaptivePadding(ctx2),
+                      child: const LoadingSkeleton(height: 72),
+                    ),
+                  )
+                : provider.items.isEmpty
+                ? provider.hasMore
+                      ? ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          controller: _scrollController,
+                          children: const [
+                            SizedBox(
+                              height: 240,
+                              child: Center(child: CircularProgressIndicator()),
+                            ),
+                          ],
+                        )
+                      : _buildEmptyList(context)
+                : useCardLayout
+                ? _buildCardList(context, provider)
+                : _buildDesktopTable(context, provider),
+          ),
         ),
         _buildLoadMoreFooter(provider),
       ],
@@ -154,6 +168,25 @@ class _BarangListPageState extends State<BarangListPage> {
       _scrollController.jumpTo(0);
     }
   }
+
+  Future<void> _refresh(BarangProvider provider) async {
+    if (provider.loading || provider.loadingMore) return;
+    _scrollToTop();
+    await provider.load();
+  }
+
+  Widget _buildEmptyList(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) => ListView(
+      controller: _scrollController,
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        SizedBox(
+          height: constraints.maxHeight,
+          child: _buildEmptyState(context),
+        ),
+      ],
+    ),
+  );
 
   Widget _buildLoadMoreFooter(BarangProvider provider) {
     return Padding(
@@ -304,6 +337,11 @@ class _BarangListPageState extends State<BarangListPage> {
             PopupMenuItem(value: 'kode:asc', child: Text('Kode A-Z')),
             PopupMenuItem(value: 'tahun:desc', child: Text('Tahun Terbaru')),
           ],
+        ),
+        Responsive.refreshButton(
+          context,
+          loading: provider.loading,
+          onRefresh: () => _refresh(provider),
         ),
         FilledButton.icon(
           onPressed: () => context.push('/inventaris/tambah'),
@@ -493,6 +531,11 @@ class _BarangListPageState extends State<BarangListPage> {
                         ),
                       ],
                     ),
+                    Responsive.refreshButton(
+                      context,
+                      loading: provider.loading,
+                      onRefresh: () => _refresh(provider),
+                    ),
                     const SizedBox(width: 8),
                     FilledButton.icon(
                       onPressed: () => context.push('/inventaris/tambah'),
@@ -604,6 +647,7 @@ class _BarangListPageState extends State<BarangListPage> {
 
     return ListView(
       controller: _scrollController,
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: Responsive.adaptivePadding(context),
       children: [
         Center(
@@ -674,6 +718,7 @@ class _BarangListPageState extends State<BarangListPage> {
   Widget _buildCardList(BuildContext context, BarangProvider provider) {
     return ListView.builder(
       controller: _scrollController,
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: Responsive.adaptivePadding(context),
       itemCount: provider.items.length + (provider.hasMore ? 1 : 0),
       itemBuilder: (_, i) {
@@ -759,24 +804,27 @@ class _BarangListPageState extends State<BarangListPage> {
   }
 
   Widget _fotoThumb(BarangModel b, {double size = 40}) {
-    return CircleAvatar(
-      radius: size / 2,
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-      child: b.hasFoto && b.fotoUrl != null && b.fotoUrl!.isNotEmpty
-          ? ClipOval(
-              child: BarangFoto(
-                barangId: b.id,
-                fotoUrl: b.fotoUrl,
-                service: context.read<BarangService>(),
-                width: size,
-                height: size,
-              ),
-            )
-          : Icon(
-              Icons.image,
-              size: size * 0.5,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox.square(
+        dimension: size,
+        child: ColoredBox(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          child: b.hasFoto && b.fotoUrl != null && b.fotoUrl!.isNotEmpty
+              ? BarangFoto(
+                  barangId: b.id,
+                  fotoUrl: b.fotoUrl,
+                  service: context.read<BarangService>(),
+                  width: size,
+                  height: size,
+                )
+              : Icon(
+                  Icons.image,
+                  size: size * 0.5,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+        ),
+      ),
     );
   }
 

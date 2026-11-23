@@ -36,79 +36,80 @@ class _PerbaikanPageState extends State<PerbaikanPage> {
   Widget build(BuildContext context) {
     final provider = context.watch<PerbaikanProvider>();
 
-    return RefreshIndicator(
-      onRefresh: () => provider.load(),
-      child: Column(
-        children: [
-          if (provider.error != null)
-            Padding(
-              padding: Responsive.adaptivePadding(context),
-              child: MaterialBanner(
-                content: Text(provider.error!),
-                leading: Icon(
-                  Icons.error_outline,
-                  color: Theme.of(context).colorScheme.error,
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => provider.load(),
-                    child: const Text('Muat ulang'),
-                  ),
-                ],
+    return Column(
+      children: [
+        if (provider.error != null)
+          Padding(
+            padding: Responsive.adaptivePadding(context),
+            child: MaterialBanner(
+              content: Text(provider.error!),
+              leading: Icon(
+                Icons.error_outline,
+                color: Theme.of(context).colorScheme.error,
               ),
-            ),
-          Padding(
-            padding: Responsive.adaptivePadding(context),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(' ', style: Theme.of(context).textTheme.bodySmall),
-            ),
-          ),
-          Padding(
-            padding: Responsive.adaptivePadding(context),
-            child: Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                SizedBox(
-                  width: Responsive.isMobile(context) ? double.infinity : 280,
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: const InputDecoration(
-                      hintText: 'Cari barang rusak...',
-                      prefixIcon: Icon(Icons.search),
-                      isDense: true,
-                    ),
-                    onChanged: provider.setSearch,
-                  ),
-                ),
-                DropdownButton<String?>(
-                  hint: const Text('Ruangan'),
-                  value: provider.ruangan,
-                  items: [
-                    const DropdownMenuItem(
-                      value: null,
-                      child: Text('Semua Ruangan'),
-                    ),
-                    ...AppConstants.ruanganList.map(
-                      (r) => DropdownMenuItem(value: r, child: Text(r)),
-                    ),
-                  ],
-                  onChanged: (v) async {
-                    provider.setRuangan(v);
-                    await provider.load();
-                  },
-                ),
-                IconButton(
+              actions: [
+                TextButton(
                   onPressed: () => provider.load(),
-                  icon: const Icon(Icons.refresh),
-                  tooltip: 'Muat ulang',
+                  child: const Text('Muat ulang'),
                 ),
               ],
             ),
           ),
-          Expanded(
+        Padding(
+          padding: Responsive.adaptivePadding(context),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(' ', style: Theme.of(context).textTheme.bodySmall),
+          ),
+        ),
+        Padding(
+          padding: Responsive.adaptivePadding(context),
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SizedBox(
+                width: Responsive.isMobile(context) ? double.infinity : 280,
+                child: TextField(
+                  controller: _searchController,
+                  decoration: const InputDecoration(
+                    hintText: 'Cari barang rusak...',
+                    prefixIcon: Icon(Icons.search),
+                    isDense: true,
+                  ),
+                  onChanged: provider.setSearch,
+                ),
+              ),
+              DropdownButton<String?>(
+                hint: const Text('Ruangan'),
+                value: provider.ruangan,
+                items: [
+                  const DropdownMenuItem(
+                    value: null,
+                    child: Text('Semua Ruangan'),
+                  ),
+                  ...AppConstants.ruanganList.map(
+                    (r) => DropdownMenuItem(value: r, child: Text(r)),
+                  ),
+                ],
+                onChanged: (v) async {
+                  provider.setRuangan(v);
+                  await provider.load();
+                },
+              ),
+              Responsive.refreshButton(
+                context,
+                loading: provider.loading,
+                onRefresh: provider.load,
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: Responsive.withPullToRefresh(
+            context,
+            onRefresh: provider.load,
             child: provider.loading
                 ? ListView.builder(
                     physics: const AlwaysScrollableScrollPhysics(),
@@ -158,8 +159,8 @@ class _PerbaikanPageState extends State<PerbaikanPage> {
                 ? _buildTable(provider)
                 : _buildCards(provider),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

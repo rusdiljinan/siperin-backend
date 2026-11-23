@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import '../core/constants/api_constants.dart';
 import '../models/user_model.dart';
 import '../utils/api_response_parser.dart';
@@ -43,9 +44,21 @@ class AuthService {
         throw Exception('Data user tidak ditemukan dalam response server');
       }
 
-      await _storage.saveToken(token);
-      final user = UserModel.fromJson(userJson);
-      await _storage.saveUser(user);
+      final UserModel user;
+      try {
+        user = UserModel.fromJson(userJson);
+      } on FormatException {
+        throw Exception('Format data pengguna dari server tidak valid.');
+      }
+
+      try {
+        await _storage.saveUser(user);
+        await _storage.saveToken(token);
+      } on PlatformException {
+        throw Exception(
+          'Sesi login tidak dapat disimpan di perangkat. Silakan coba lagi.',
+        );
+      }
 
       if (kDebugMode) {
         debugPrint(
@@ -98,32 +111,59 @@ class AuthService {
   Map<String, dynamic> _normalizeJson(dynamic data) {
     if (data is Map<String, dynamic>) return data;
     if (data is Map) return Map<String, dynamic>.from(data);
-    throw Exception('Format response server tidak valid (bukan JSON object)');
+    throw const FormatException(
+      'Format response server tidak valid (bukan JSON object)',
+    );
   }
 
   String _dioErrorMessage(DioException e) {
     switch (e.type) {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.receiveTimeout:
-        return 'Server tidak merespon. Pastikan Laravel berjalan: php artisan serve';
+      case DioExceptionType.sendTimeout:
+        return 'Waktu tunggu koneksi habis. Silakan coba kembali.';
       case DioExceptionType.connectionError:
-        return 'Tidak dapat terhubung ke API. Periksa URL: ${ApiConstants.baseUrl} '
-            '(Android emulator gunakan http://10.0.2.2:8000/api)';
+        final socketMessage = e.error.toString().toLowerCase();
+        if (socketMessage.contains('network is unreachable') ||
+            socketMessage.contains('no route to host')) {
+          return 'Koneksi internet tidak tersedia. Periksa koneksi Anda.';
+        }
+        return 'Server sedang tidak dapat dihubungi. Periksa koneksi internet lalu coba lagi.';
+      case DioExceptionType.badCertificate:
+        return 'Sertifikat keamanan server tidak valid. Silakan coba lagi nanti.';
       case DioExceptionType.badResponse:
+        final status = e.response?.statusCode;
+        if (status == 401) {
+          return 'Username atau password salah.';
+        }
+        if (status == 422 && e.response?.data != null) {
+          try {
+            final json = _normalizeJson(e.response!.data);
+            return ApiResponseParser.extractErrorMessage(
+              json,
+              fallback: 'Username atau password belum sesuai.',
+            );
+          } on FormatException {
+            return 'Username atau password belum sesuai.';
+          }
+        }
+        if (status != null && status >= 500) {
+          return 'Terjadi kesalahan pada server. Silakan coba lagi nanti.';
+        }
         if (e.response?.data != null) {
           try {
             final json = _normalizeJson(e.response!.data);
             return ApiResponseParser.extractErrorMessage(
               json,
-              fallback: 'Login gagal (${e.response?.statusCode})',
+              fallback: 'Login gagal. Periksa username dan password.',
             );
-          } catch (_) {
-            return 'Login gagal (HTTP ${e.response?.statusCode})';
+          } on FormatException {
+            return 'Server mengirim respons yang tidak dapat diproses.';
           }
         }
-        return 'Login gagal (HTTP ${e.response?.statusCode})';
+        return 'Login gagal. Periksa username dan password.';
       default:
-        return e.message ?? 'Kesalahan jaringan saat login';
+        return 'Terjadi kendala saat login. Silakan coba lagi.';
     }
   }
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 /// Responsive helpers and shared breakpoints used across the app.
@@ -26,6 +27,38 @@ class Responsive {
 
   static bool isCompactMobile(BuildContext context) =>
       MediaQuery.sizeOf(context).width <= 380;
+
+  static bool showWebRefreshButton(BuildContext context) =>
+      kIsWeb && !isMobile(context);
+
+  static Widget refreshButton(
+    BuildContext context, {
+    required bool loading,
+    required Future<void> Function() onRefresh,
+  }) {
+    if (!showWebRefreshButton(context)) return const SizedBox.shrink();
+
+    return IconButton(
+      tooltip: 'Refresh',
+      onPressed: loading ? null : onRefresh,
+      icon: loading
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.refresh),
+    );
+  }
+
+  static Widget withPullToRefresh(
+    BuildContext context, {
+    required Future<void> Function() onRefresh,
+    required Widget child,
+  }) {
+    if (kIsWeb && !isMobile(context)) return child;
+    return RefreshIndicator(onRefresh: onRefresh, child: child);
+  }
 
   /// Keeps the existing type hierarchy while preventing fixed text styles
   /// from crowding narrow screens.

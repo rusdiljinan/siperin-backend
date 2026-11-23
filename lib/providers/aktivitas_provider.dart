@@ -7,6 +7,7 @@ class AktivitasProvider extends ChangeNotifier {
   List<AktivitasModel> _items = [];
   bool _loading = false;
   String? _error;
+  Future<void>? _inFlight;
 
   AktivitasProvider(this._service);
 
@@ -14,7 +15,20 @@ class AktivitasProvider extends ChangeNotifier {
   bool get loading => _loading;
   String? get error => _error;
 
-  Future<void> load() async {
+  Future<void> load() {
+    final activeRequest = _inFlight;
+    if (activeRequest != null) return activeRequest;
+
+    final request = _performLoad();
+    late final Future<void> trackedRequest;
+    trackedRequest = request.whenComplete(() {
+      if (identical(_inFlight, trackedRequest)) _inFlight = null;
+    });
+    _inFlight = trackedRequest;
+    return trackedRequest;
+  }
+
+  Future<void> _performLoad() async {
     _loading = true;
     _error = null;
     notifyListeners();

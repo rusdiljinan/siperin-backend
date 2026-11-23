@@ -97,6 +97,11 @@ class _UserManagementPageState extends State<UserManagementPage> {
     }
   }
 
+  Future<void> _refreshUsers() async {
+    if (_isLoading || _isLoadingMore) return;
+    await _loadUsers();
+  }
+
   Future<void> _showUserForm({ManagedUserModel? user}) async {
     final values = await showDialog<UserFormValues>(
       context: context,
@@ -248,6 +253,15 @@ class _UserManagementPageState extends State<UserManagementPage> {
                 '$_total pengguna',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
+              if (Responsive.showWebRefreshButton(context))
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Responsive.refreshButton(
+                    context,
+                    loading: _isLoading,
+                    onRefresh: _refreshUsers,
+                  ),
+                ),
               const SizedBox(height: 12),
               LayoutBuilder(
                 builder: (context, constraints) {
@@ -392,36 +406,61 @@ class _UserManagementPageState extends State<UserManagementPage> {
               ),
               const SizedBox(height: 12),
               Expanded(
-                child: _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : _error != null && _users.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.cloud_off_outlined,
-                              size: 40,
-                              color: colors.error,
-                            ),
-                            const SizedBox(height: 12),
-                            Text(_error!, textAlign: TextAlign.center),
-                            const SizedBox(height: 12),
-                            OutlinedButton.icon(
-                              onPressed: _loadUsers,
-                              icon: const Icon(Icons.refresh),
-                              label: const Text('Coba Lagi'),
+                child: Responsive.withPullToRefresh(
+                  context,
+                  onRefresh: _refreshUsers,
+                  child: _isLoading
+                      ? ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: const [
+                            SizedBox(
+                              height: 240,
+                              child: Center(child: CircularProgressIndicator()),
                             ),
                           ],
-                        ),
-                      )
-                    : _users.isEmpty
-                    ? const Center(
-                        child: Text('Tidak ada pengguna yang cocok.'),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: _loadUsers,
-                        child: ListView.separated(
+                        )
+                      : _error != null && _users.isEmpty
+                      ? ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: [
+                            SizedBox(
+                              height: 300,
+                              child: Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.cloud_off_outlined,
+                                      size: 40,
+                                      color: colors.error,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(_error!, textAlign: TextAlign.center),
+                                    const SizedBox(height: 12),
+                                    OutlinedButton.icon(
+                                      onPressed: _refreshUsers,
+                                      icon: const Icon(Icons.refresh),
+                                      label: const Text('Coba Lagi'),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      : _users.isEmpty
+                      ? ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: const [
+                            SizedBox(
+                              height: 240,
+                              child: Center(
+                                child: Text('Tidak ada pengguna yang cocok.'),
+                              ),
+                            ),
+                          ],
+                        )
+                      : ListView.separated(
                           controller: _scrollController,
                           physics: const AlwaysScrollableScrollPhysics(),
                           padding: const EdgeInsets.only(bottom: 12),
@@ -456,7 +495,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
                             return _userTile(_users[index]);
                           },
                         ),
-                      ),
+                ),
               ),
             ],
           ),

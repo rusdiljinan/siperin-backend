@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/barang_history_model.dart';
 import '../../models/barang_model.dart';
@@ -33,6 +32,7 @@ class _BarangDetailPageState extends State<BarangDetailPage> {
   BarangModel? _barang;
   List<BarangHistoryModel> _history = [];
   bool _loading = true;
+  bool _refreshing = false;
   String? _error;
 
   @override
@@ -70,6 +70,30 @@ class _BarangDetailPageState extends State<BarangDetailPage> {
       service.getHistory(id),
     ]);
     return (results[0] as BarangModel, results[1] as List<BarangHistoryModel>);
+  }
+
+  Future<void> _refresh() async {
+    if (_loading || _refreshing) return;
+    setState(() => _refreshing = true);
+    try {
+      final (barang, history) = await _fetchDetail(widget.barangId);
+      if (!mounted) return;
+      setState(() {
+        _barang = barang;
+        _history = history;
+        _error = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      SnackbarHelper.show(
+        context,
+        message:
+            'Gagal memperbarui detail inventaris: ${error.toString().replaceFirst('Exception: ', '')}',
+        isError: true,
+      );
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
+    }
   }
 
   Widget _errorView(BuildContext context) => Center(
@@ -127,71 +151,84 @@ class _BarangDetailPageState extends State<BarangDetailPage> {
 
     final b = _barang!;
 
-    final content = SingleChildScrollView(
-      padding: Responsive.adaptivePadding(context),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: Responsive.contentMaxWidth(context),
-          ),
-          child: Column(
-            children: [
-              Card(
-                child: Padding(
-                  padding: Responsive.adaptivePadding(context),
-                  child: LayoutBuilder(
-                    builder: (context, c) {
-                      final isWide = c.maxWidth > 600;
-                      return isWide
-                          ? Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(child: _fotoSection(b)),
-                                const SizedBox(width: 24),
-                                Expanded(flex: 2, child: _infoSection(b)),
-                              ],
-                            )
-                          : Column(
-                              children: [
-                                _fotoSection(b),
-                                const SizedBox(height: 20),
-                                _infoSection(b),
-                              ],
-                            );
-                    },
+    final content = Responsive.withPullToRefresh(
+      context,
+      onRefresh: _refresh,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: Responsive.adaptivePadding(context),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: Responsive.contentMaxWidth(context),
+            ),
+            child: Column(
+              children: [
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Responsive.refreshButton(
+                    context,
+                    loading: _refreshing,
+                    onRefresh: _refresh,
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Card(
-                child: Padding(
-                  padding: Responsive.adaptivePadding(context),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Riwayat Perubahan',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 12),
-                      ..._history.map(
-                        (h) => ListTile(
-                          leading: const Icon(
-                            Icons.history,
-                            color: AppColors.primary,
-                          ),
-                          title: Text(h.perubahan),
-                          subtitle: Text(
-                            '${h.userName} • ${FormatHelper.dateTime(h.waktu)}',
+                Card(
+                  child: Padding(
+                    padding: Responsive.adaptivePadding(context),
+                    child: LayoutBuilder(
+                      builder: (context, c) {
+                        final isWide = c.maxWidth > 600;
+                        return isWide
+                            ? Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(child: _fotoSection(b)),
+                                  const SizedBox(width: 24),
+                                  Expanded(flex: 2, child: _infoSection(b)),
+                                ],
+                              )
+                            : Column(
+                                children: [
+                                  _fotoSection(b),
+                                  const SizedBox(height: 20),
+                                  _infoSection(b),
+                                ],
+                              );
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Card(
+                  child: Padding(
+                    padding: Responsive.adaptivePadding(context),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Riwayat Perubahan',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 12),
+                        ..._history.map(
+                          (h) => ListTile(
+                            leading: const Icon(
+                              Icons.history,
+                              color: AppColors.primary,
+                            ),
+                            title: Text(h.perubahan),
+                            subtitle: Text(
+                              '${h.userName} • ${FormatHelper.dateTime(h.waktu)}',
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -208,48 +245,44 @@ class _BarangDetailPageState extends State<BarangDetailPage> {
   }
 
   Widget _fotoSection(BarangModel b) {
-    return Column(
-      children: [
-        Container(
-          height: 200,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: b.hasFoto && b.fotoUrl != null
-              ? ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: BarangFoto(
-                    barangId: b.id,
-                    fotoUrl: b.fotoUrl,
-                    service: context.read<BarangService>(),
-                    width: double.infinity,
-                    height: 200,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final imageSize = constraints.maxWidth.clamp(0.0, 320.0);
+        return Column(
+          children: [
+            SizedBox(
+              width: imageSize,
+              child: AspectRatio(
+                aspectRatio: 1,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                )
-              : Icon(
-                  Icons.inventory_2,
-                  size: 80,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  child: b.hasFoto && b.fotoUrl != null
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: BarangFoto(
+                            barangId: b.id,
+                            fotoUrl: b.fotoUrl,
+                            service: context.read<BarangService>(),
+                            width: imageSize,
+                            height: imageSize,
+                          ),
+                        )
+                      : Icon(
+                          Icons.inventory_2,
+                          size: 80,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                 ),
-        ),
-        const SizedBox(height: 16),
-        QrImageView(
-          data: 'BARANG:${b.kode}',
-          version: QrVersions.auto,
-          size: 120,
-          backgroundColor: Colors.white,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          b.kode,
-          style: TextStyle(
-            fontSize: 12,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 

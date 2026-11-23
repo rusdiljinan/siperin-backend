@@ -9,6 +9,7 @@ class PerbaikanProvider extends ChangeNotifier {
   String? _error;
   String _search = '';
   String? _ruangan;
+  Future<void>? _inFlight;
 
   PerbaikanProvider(this._service);
 
@@ -36,7 +37,20 @@ class PerbaikanProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> load() async {
+  Future<void> load() {
+    final activeRequest = _inFlight;
+    if (activeRequest != null) return activeRequest;
+
+    final request = _performLoad();
+    late final Future<void> trackedRequest;
+    trackedRequest = request.whenComplete(() {
+      if (identical(_inFlight, trackedRequest)) _inFlight = null;
+    });
+    _inFlight = trackedRequest;
+    return trackedRequest;
+  }
+
+  Future<void> _performLoad() async {
     _loading = true;
     _error = null;
     notifyListeners();

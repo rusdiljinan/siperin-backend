@@ -313,11 +313,10 @@ class BarangService {
     switch (e.type) {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.receiveTimeout:
-        return 'Server tidak merespon. Pastikan Laravel aktif (php artisan serve).';
+        return 'Waktu tunggu koneksi habis. Silakan coba kembali.';
       case DioExceptionType.connectionError:
-        return 'Tidak bisa terhubung ke API.\n'
-            'Cek: backend jalan, URL benar (${ApiConstants.baseUrl}).\n'
-            'Android emulator pakai 10.0.2.2, bukan 127.0.0.1.';
+        return 'Server sedang tidak dapat dihubungi. '
+            'Periksa koneksi internet lalu coba lagi.';
       case DioExceptionType.badResponse:
         if (e.response?.data != null) {
           try {

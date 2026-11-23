@@ -31,51 +31,56 @@ class _DashboardPageState extends State<DashboardPage> {
     final isCompactMobile = Responsive.isCompactMobile(context);
 
     if (provider.loading) {
-      return const DashboardSkeleton();
+      return _refreshable(context, provider, const DashboardSkeleton());
     }
 
     if (provider.error != null) {
-      return Center(
-        child: Padding(
-          padding: Responsive.adaptivePadding(context),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.error_outline,
-                size: 64,
-                color: Theme.of(context).colorScheme.error,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Gagal memuat dashboard',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                provider.error ?? 'Kesalahan tidak diketahui',
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => provider.load(),
-                child: const Text('Coba Lagi'),
-              ),
-            ],
+      return _refreshable(
+        context,
+        provider,
+        SizedBox(
+          height: MediaQuery.sizeOf(context).height * 0.65,
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  size: 64,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Gagal memuat dashboard',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  provider.error ?? 'Kesalahan tidak diketahui',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: provider.loading ? null : provider.load,
+                  child: const Text('Coba Lagi'),
+                ),
+              ],
+            ),
           ),
         ),
       );
     }
 
     if (provider.data == null) {
-      return const DashboardSkeleton();
+      return _refreshable(context, provider, const DashboardSkeleton());
     }
 
-    return SingleChildScrollView(
-      padding: Responsive.adaptivePadding(context),
-      child: Center(
+    return _refreshable(
+      context,
+      provider,
+      Center(
         child: ConstrainedBox(
           constraints: BoxConstraints(
             maxWidth: Responsive.contentMaxWidth(context),
@@ -123,6 +128,34 @@ class _DashboardPageState extends State<DashboardPage> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _refreshable(
+    BuildContext context,
+    DashboardProvider provider,
+    Widget content,
+  ) {
+    return Responsive.withPullToRefresh(
+      context,
+      onRefresh: provider.load,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: Responsive.adaptivePadding(context),
+        child: Column(
+          children: [
+            Align(
+              alignment: Alignment.centerRight,
+              child: Responsive.refreshButton(
+                context,
+                loading: provider.loading,
+                onRefresh: provider.load,
+              ),
+            ),
+            content,
+          ],
         ),
       ),
     );

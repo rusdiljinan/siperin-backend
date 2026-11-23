@@ -116,6 +116,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Meja'), findsOneWidget);
+      expect(find.text('INV-007'), findsOneWidget);
       final keterangan = tester.getRect(find.text('Keterangan'));
       final edit = tester.getRect(
         find.ancestor(
