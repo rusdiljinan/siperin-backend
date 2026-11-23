@@ -1,36 +1,124 @@
-*.log
-.DS_Store
-.env
-.env.backup
-.env.production
-.phpactor.json
-.phpunit.result.cache
-/.fleet
-/.idea
-/.nova
-/.phpunit.cache
-/.vscode
-/.zed
-/auth.json
+
+# ==========================================
+# LARAVEL
+# ==========================================
+
+/vendor
 /node_modules
 /public/build
 /public/hot
 /public/storage
+
 /storage/*.key
 /storage/pail
-/vendor
+
 Homestead.json
 Homestead.yaml
-Thumbs.db
+auth.json
 
-# Environment secrets
+# ==========================================
+# ENVIRONMENT & SECRETS
+# ==========================================
+
+.env
 .env.*
 !.env.example
 
-# Database backups
+.env.backup
+.env.production
+
+# ==========================================
+# FLUTTER
+# ==========================================
+
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+
+# Flutter generated build files
+/build/
+
+# ==========================================
+# ANDROID
+# ==========================================
+
+/android/.gradle/
+/android/app/build/
+/android/build/
+/android/captures/
+/android/local.properties
+/android/gradle-app.setting
+
+# Android generated packages
+*.apk
+*.aab
+
+# ==========================================
+# IOS
+# ==========================================
+
+/ios/Flutter/Flutter.framework/
+/ios/Flutter/Flutter.podspec
+/ios/Flutter/Generated.xcconfig
+/ios/Flutter/flutter_export_environment.sh
+
+/ios/Pods/
+/ios/.symlinks/
+/ios/build/
+/ios/Runner/GeneratedPluginRegistrant.*
+
+# iOS generated packages
+*.ipa
+*.xcarchive
+
+# ==========================================
+# WEB & FIREBASE
+# ==========================================
+
+# Flutter Web build
+/build/web/
+
+# Firebase local cache
+.firebase/
+
+# ==========================================
+# EDITORS & OPERATING SYSTEM
+# ==========================================
+
+/.fleet
+/.idea
+/.nova
+/.vscode
+/.zed
+
+.DS_Store
+Thumbs.db
+*.log
+
+# ==========================================
+# DATABASE BACKUPS
+# ==========================================
+
 *.sql
 *.dump
 *.bak
 
-# Local environment files
-/.env
+# ==========================================
+# PHP & TESTING
+# ==========================================
+
+.phpactor.json
+.phpunit.result.cache
+/.phpunit.cache
+
+# ==========================================
+# TEMPORARY FILES
+# ==========================================
+
+*.tmp
+*.temp
+*.swp
+*.swo
